@@ -1,6 +1,7 @@
 package eu.cec.digit.comref.interview;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
@@ -10,6 +11,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import eu.cec.digit.comref.interview.persistent.domain.Watch;
 import eu.cec.digit.comref.interview.persistent.repository.WatchRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.transaction.annotation.Transactional;
+
 
 @Slf4j
 @SpringBootApplication
@@ -23,7 +26,7 @@ public class InterviewTest1Application implements CommandLineRunner {
 	}
 
 	@Override
-	public void run(String... args) throws Exception {
+	public void run(String... args) {
 		log.info("Starting test one");
 
 	}
@@ -38,9 +41,7 @@ public class InterviewTest1Application implements CommandLineRunner {
 
 	public void fastAddWatches(List<Watch> watches) {
 
-		for(Watch watch : watches) {
-			watchRepository.save(watch);
-		}
+			watchRepository.saveAll(watches);
 
 	}
 	
@@ -51,8 +52,8 @@ public class InterviewTest1Application implements CommandLineRunner {
 		
 		for(Watch watch : watches) {
 			
-			if(!watch.equals("available")) {
-				watchRepository.deleteAll(watches);
+			if(!watch.getAvailable()) {
+				watchRepository.delete(watch);
 			}
 		}
 		
@@ -64,17 +65,6 @@ public class InterviewTest1Application implements CommandLineRunner {
 		Watch watch = new Watch(null, null, null, null);
 		watch.setAvailable(available);
 		watch.setName(name);
-		watch.setSold(value);
-		watch.setValue(sold);
-
-		return watchRepository.save(watch);
-
-	}
-
-	public Watch updateWatch(String name, Integer value, Integer sold, Boolean available) {
-
-		Watch watch = getWatch(name);
-		watch.setAvailable(available);
 		watch.setSold(sold);
 		watch.setValue(value);
 
@@ -82,23 +72,33 @@ public class InterviewTest1Application implements CommandLineRunner {
 
 	}
 
-	public Watch getWatch(String name) {
+	public void updateWatch(String name, Integer value, Integer sold, Boolean available) {
 
-		return watchRepository.findById(name).orElse(null);
+		Optional<Watch> watch = getWatch(name).stream().findFirst();
+		watch.ifPresent(w -> {
+			w.setAvailable(available);
+			w.setSold(sold);
+			w.setValue(value);
+
+			watchRepository.save(w);
+		});
+	}
+
+	public Optional<Watch> getWatch(String name) {
+
+		return watchRepository.findByName(name);
 
 	}
 
-	public Watch incrementWatchSales(String name) {
+	public void incrementWatchSales(String name) {
 
-		Watch watch = watchRepository.findById(name).orElse(null);
+		boolean found = watchRepository.existsByName(name);
 
-		if (watch != null) {
+		if (!found) {
+			Watch watch = new Watch();
 			watch.setValue(watch.getValue());
-			return watchRepository.save(watch);
-
+			watchRepository.save(watch);
 		}
-
-		return watch;
 	}
 
 	public List<Watch> findAll() {
@@ -107,8 +107,9 @@ public class InterviewTest1Application implements CommandLineRunner {
 
 	}
 
+	@Transactional
 	public void deleteWatch(String name) {
 
-		watchRepository.deleteById(name);
+		watchRepository.deleteByName(name);
 	}
 }
